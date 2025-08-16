@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SIKCONTA STREAMING</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      background: #111; 
+      color: white; 
+      margin: 0; 
+      padding: 20px; 
+      text-align: center; 
+    }
+    header { 
+      background: #222; 
+      padding: 15px; 
+      text-align: center; 
+      font-size: 28px; 
+      font-weight: bold; 
+    }
+
+    .input-box { padding: 12px; border-radius: 5px; border: 3px solid #ff4500; background: #111; color: white; text-align: center; margin: 10px 5px; }
+    #videoTitle { width: 440px; border: 3px solid #1e90ff; }
+
+    #loginSection { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+    #loginSection input { width: 220px; }
+    #loginSection button { padding: 12px 18px; }
+
+    button { background: crimson; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px 0; }
+    .video-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 25px; margin-top: 20px; justify-items: center; }
+    .video-card { background: #222; padding: 15px; border-radius: 12px; text-align: center; position: relative; }
+    video { width: 100%; border-radius: 12px; height: auto; }
+    .hidden { display: none; }
+    .delete-btn { background: darkred; position: absolute; top: 10px; right: 10px; padding: 5px 10px; font-size: 12px; }
+    #logoutBtn { background: darkorange; margin-top: 10px; }
+    #changePasswordDiv { margin-top: 10px; display: flex; justify-content: center; gap: 5px; flex-wrap: wrap; }
+    .show-hide { cursor: pointer; color: #fff; font-weight: bold; }
+    .no-videos { text-align: center; font-size: 18px; color: #ccc; margin-top: 20px; }
+
+    #searchInput { width: 600px; padding: 12px; border-radius: 5px; border: 3px solid #32cd32; margin-top: 20px; text-align: center; background: #111; color: white; }
+  </style>
+</head>
+<body>
+  <header>🎬 Free Stream </header>
+
+  <!-- Admin Login -->
+  <div id="loginSection">
+    <input type="password" id="adminPassword" placeholder="Admin Login" class="input-box">
+    <span class="show-hide" onclick="toggleLoginPassword()">👁️</span>
+    <button onclick="checkLogin()">Login</button>
+  </div>
+
+  <!-- Admin Panel -->
+  <div id="adminPanel" class="hidden">
+    <input type="file" id="uploadVideo" accept="video/*"><br>
+    <input type="text" id="videoTitle" placeholder="Movie Title" class="input-box"><br>
+    <button onclick="postVideo()">Post Video</button>
+    <button id="logoutBtn" onclick="logout()">Logout</button>
+
+    <!-- Change Password -->
+    <div id="changePasswordDiv">
+      <input type="password" id="newPassword" placeholder="Enter New Password" class="input-box">
+      <span class="show-hide" onclick="toggleNewPassword()">👁️</span>
+      <button onclick="changePassword()">Change Password</button>
+    </div>
+    <hr>
+  </div>
+
+  <!-- Visitor Homepage -->
+  <input type="text" id="searchInput" placeholder="Search movies..." onkeyup="searchVideos()">
+  <div class="video-list" id="videoList"></div>
+  <div id="noVideos" class="no-videos">No videos uploaded yet</div>
+
+  <script>
+    let storedPassword = localStorage.getItem("kushAdminPassword") || "kush";
+    let isAdmin = false;
+    let videos = JSON.parse(localStorage.getItem("kushVideos")) || [];
+
+    function toggleLoginPassword() {
+      const input = document.getElementById("adminPassword");
+      input.type = input.type === "password" ? "text" : "password";
+    }
+
+    function toggleNewPassword() {
+      const input = document.getElementById("newPassword");
+      input.type = input.type === "password" ? "text" : "password";
+    }
+
+    function renderVideos(list = videos) {
+      const videoList = document.getElementById("videoList");
+      const noVideos = document.getElementById("noVideos");
+      videoList.innerHTML = "";
+
+      if (list.length === 0) {
+        noVideos.style.display = "block";
+      } else {
+        noVideos.style.display = "none";
+        list.forEach((v, index) => {
+          const card = document.createElement("div");
+          card.className = "video-card";
+          let deleteBtn = "";
+          if (isAdmin) deleteBtn = `<button class="delete-btn" onclick="deleteVideo(${index})">Delete</button>`;
+
+          // Add download button for everyone
+          let downloadBtn = `<a href="${v.src}" download="${v.title}.mp4"><button>Download</button></a>`;
+
+          card.innerHTML = `
+            <h3>${v.title}</h3>
+            <video controls>
+              <source src="${v.src}" type="video/mp4">
+              Your browser does not support video.
+            </video>
+            <br>${downloadBtn}
+            ${deleteBtn}
+          `;
+          videoList.appendChild(card);
+        });
+      }
+    }
+
+    function searchVideos() {
+      const query = document.getElementById("searchInput").value.toLowerCase();
+      const filtered = videos.filter(v => v.title.toLowerCase().includes(query));
+      renderVideos(filtered);
+    }
+
+    function postVideo() {
+      const fileInput = document.getElementById("uploadVideo");
+      const titleInput = document.getElementById("videoTitle");
+      if (fileInput.files.length === 0 || titleInput.value === "") return;
+
+      const file = fileInput.files[0];
+      const url = URL.createObjectURL(file);
+      const videoData = { title: titleInput.value, src: url };
+      videos.unshift(videoData);
+      localStorage.setItem("kushVideos", JSON.stringify(videos));
+      renderVideos();
+      fileInput.value = "";
+      titleInput.value = "";
+    }
+
+    function deleteVideo(index) {
+      if (!isAdmin) return;
+      videos.splice(index, 1);
+      localStorage.setItem("kushVideos", JSON.stringify(videos));
+      renderVideos();
+    }
+
+    function checkLogin() {
+      const password = document.getElementById("adminPassword").value;
+      if (password === storedPassword) {
+        isAdmin = true;
+        document.getElementById("adminPanel").classList.remove("hidden");
+        document.getElementById("loginSection").classList.add("hidden");
+        renderVideos();
+      } else {
+        alert("Wrong password!");
+      }
+    }
+
+    function logout() {
+      isAdmin = false;
+      document.getElementById("adminPanel").classList.add("hidden");
+      document.getElementById("loginSection").classList.remove("hidden");
+      document.getElementById("adminPassword").value = "";
+      renderVideos();
+    }
+
+    function changePassword() {
+      const newPass = document.getElementById("newPassword").value;
+      if (newPass === "") return;
+      storedPassword = newPass;
+      localStorage.setItem("kushAdminPassword", storedPassword);
+      document.getElementById("newPassword").value = "";
+      alert("Password changed successfully!");
+    }
+
+    window.onbeforeunload = function() {
+      logout();
+    };
+
+    renderVideos();
+  </script>
+</body>
+</html>
+<script>
+  // Force reset default admin password to "lovkush"
+  localStorage.setItem("kushAdminPassword", "lovkush");
+</script>
+
